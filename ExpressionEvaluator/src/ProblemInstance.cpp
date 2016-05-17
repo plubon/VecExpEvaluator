@@ -32,39 +32,30 @@ ProblemInstance::ProblemInstance(string filename)
 				vector<float> temp;
 				this->vectors.insert(pair<char,vector<float> >(tokens[i][0], temp));
 			}
+			for(int i=0; i<this->variableNames.size(); i++)
+			{
+				char newVal = i + 65;
+				replace(this->expression.begin(), this->expression.end(), this->variableNames[i], newVal);
+				vector<float> temp = this->vectors[variableNames[i]];
+				this->vectors.erase(variableNames[i]);
+				AddVector(newVal, temp);
+				variableNames[i] = newVal;
+			}
 		}
 		else
 		{
 			istringstream ss(line);
-			vector<string> tokens;
 			string token;
+			int i =0;
 			while(std::getline(ss, token, ','))
-			    tokens.push_back(token);
-			for(int i = 0; i < tokens.size(); i++)
 			{
-				this->vectors[this->variableNames[i]].push_back(atof(tokens[i].c_str()));
+				this->vectors[this->variableNames[i]].push_back(atof(token.c_str()));
+				i++;
 			}
 		}
 		j++;
 	}
 	this->length = j - 2;
-	for(int i=0; i<this->variableNames.size(); i++)
-	{
-		char newVal = i + 65;
-		replace(this->expression.begin(), this->expression.end(), this->variableNames[i], newVal);
-		vector<float> temp = this->vectors[variableNames[i]];
-		this->vectors.erase(variableNames[i]);
-		AddVector(newVal, temp);
-		variableNames[i] = newVal;
-	}
-	/*cout<<"Num of vars: "<<this->variableNames.size()<<endl;
-	for(int i=0; i<this->variableNames.size(); i++)
-	{
-		cout<<variableNames[i]<<":";
-		for(int j=0; j<this->length; j++)
-			cout<<this->vectors[variableNames[i]][j]<<";";
-		cout<<endl;
-	}*/
 	this->ExpressionToRpn();
 }
 
@@ -104,7 +95,6 @@ void ProblemInstance::CudaMallocError(string op,string memory)
 void ProblemInstance::CopyToDevice(char*& expression, float*& vectors, float*& result)
 {
 	string tree = this->GetInfixTree();
-	//cout<<"Infix tree: "<<tree<<endl;
 	cudaError_t err = cudaSuccess;
 	err = cudaMalloc((void **)&expression, tree.size() * sizeof(char));
 	if (err != cudaSuccess)
@@ -119,7 +109,7 @@ void ProblemInstance::CopyToDevice(char*& expression, float*& vectors, float*& r
 	if (err != cudaSuccess)
 			CudaMallocError("copy","expression");
 	int len = this->variableNames.size() * this->length;
-	float data[len];
+	float* data = (float*) malloc(len * sizeof(float));
 	for(int i = 0; i < this->length; i++)
 	{
 		for(int j = 0; j < this->variableNames.size(); j++)
@@ -127,11 +117,8 @@ void ProblemInstance::CopyToDevice(char*& expression, float*& vectors, float*& r
 			data[j+(i*this->variableNames.size())] = this->vectors[this->variableNames[j]][i];
 		}
 	}
-	/*cout<<"Allocated vectors: ";
-	for(int i = 0 ; i<len ; i++)
-		cout<<data[i]<<';';
-	cout<<endl;*/
 	err = cudaMemcpy(vectors, data, len * sizeof(float), cudaMemcpyHostToDevice);
+	free(data);
 	if (err != cudaSuccess)
 				CudaMallocError("copy","vectors");
 }
@@ -227,5 +214,4 @@ void ProblemInstance::ExpressionToRpn()
 		stackPos--;
 	}
 	this->expression = output;
-	//cout<<"Expression in RPN: "<<output<<endl;
 }

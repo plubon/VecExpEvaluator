@@ -25,25 +25,8 @@
 #include <ctime>
 
 #define CUDA_CHECK_RETURN(value) CheckCudaErrorAux(__FILE__,__LINE__, #value, value)
-#define MAX_BLOCK_SIZE 1024
+#define MAX_BLOCK_SIZE 512
 typedef long long int64; typedef unsigned long long uint64;
-uint64 GetTimeMs64()
-{
-
-	 /* Linux */
-	 struct timeval tv;
-
-	 gettimeofday(&tv, NULL);
-
-	 uint64 ret = tv.tv_usec;
-	 /* Convert from micro seconds (10^-6) to milliseconds (10^-3) */
-	 ret /= 1000;
-
-	 /* Adds the seconds (10^0) after converting them to milliseconds (10^-3) */
-	 ret += (tv.tv_sec * 1000);
-
-	 return ret;
-}
 
 
 int main(int argc, char * argv[])
@@ -58,7 +41,7 @@ int main(int argc, char * argv[])
 	char cwd[1024];
 	if (getcwd(cwd, sizeof(cwd)) != NULL)
 	       fprintf(stdout, "Current working dir: %s\n", cwd);
-	string filename="/home/piotr/testfile";
+	string filename="testfile";
 	ProblemInstance problem(filename);
 	float finalResult[problem.length];
 	char* devExpression = NULL;
@@ -94,11 +77,12 @@ int main(int argc, char * argv[])
 	cudaEventElapsedTime(&elapsedTime, start, stop);
 	cudaEventDestroy(start);
 	cudaEventDestroy(stop);
-	cout<<"przeszlo"<<endl;
 	cudaMemcpy(finalResult, devResult, problem.length*sizeof(float), cudaMemcpyDeviceToHost);
-	uint64 t5 = GetTimeMs64();
+	struct timeval t5, t6;
+	gettimeofday(&t5, NULL);
 	vector<float> cpuResults = problem.EvaluateCpu();
-	uint64 t6 = GetTimeMs64();
+	gettimeofday(&t6, NULL);
+	uint64 diff = ((t6.tv_sec - t5.tv_sec) * 1000) +(t6.tv_usec/1000 - t5.tv_usec/1000);
 	bool ok = true;
 	for(int i = 0; i < problem.length; i++)
 	{
@@ -119,7 +103,7 @@ int main(int argc, char * argv[])
 	cudaFree(devResult);
 	cout<<"Copying time: "<<elapsedCopy<<endl;
 	cout<<"Calculation time: "<<elapsedTime<<endl;
-	cout<<"Cpu calculation time:"<<t6 - t5<<endl;
+	cout<<"Cpu calculation time:"<<diff<<endl;
 	cudaFree(devExpression);
 	cudaFree(devVectors);
 	cudaFree(devResult);
